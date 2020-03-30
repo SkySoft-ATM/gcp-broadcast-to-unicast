@@ -9,24 +9,8 @@ import (
 	"time"
 )
 
-// This example demonstrates how to use your own transport when using this package.
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	cli, err := google.DefaultClient(ctx)
-	if err != nil {
-		panic(err)
-	}
-	c := metadata.NewClient(cli)
-	p, err := c.ProjectID()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Working on project", p)
-
-	project := p
-	zone, err := c.Zone()
-	fmt.Println("in zone", zone)
-	cancel()
+	project, zone, err := getProjectAndZone()
 
 	cs, err := compute.NewService(context.Background())
 	if err != nil {
@@ -44,4 +28,21 @@ func main() {
 			fmt.Println(" >>>", ni.NetworkIP)
 		}
 	}
+}
+
+func getProjectAndZone() (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	cli, err := google.DefaultClient(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	c := metadata.NewClient(cli)
+	p, err := c.ProjectID()
+	if err != nil {
+		return "", "", err
+	}
+
+	zone, err := c.Zone()
+	return p, zone, nil
 }
