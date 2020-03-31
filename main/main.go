@@ -189,6 +189,7 @@ func addAndStartNewInstances(currentInstances map[string]instanceHandle, newInst
 						gorillaz.Sugar.Infof("unicast to %s:%s", addr, port)
 						err := network.BroadcasterToUdp(ctx, b.Broadcaster, addr+":"+port)
 						if err == nil {
+							gorillaz.Sugar.Infof("Stopped unicast to %s:%s", addr, port)
 							return
 						}
 						gorillaz.Log.Warn("Could not unicast", zap.String("address", addr), zap.String("port", port), zap.Error(err))
