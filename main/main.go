@@ -69,17 +69,17 @@ func getPortsToListen(project, zone string) []string {
 			continue
 		}
 		gorillaz.Sugar.Infof("We are running on instance %s", vm.name)
-		ports, ok := vm.labels["broadcast-ports"]
+		ports, ok := vm.labels["broadcast_ports"]
 		if ok {
 			return strings.Split(ports, "_")
 		} else {
 			otherLabels := make([]string, len(vm.labels))
 			i := 0
-			for l, _ := range vm.labels {
+			for l := range vm.labels {
 				otherLabels[i] = l
 				i++
 			}
-			gorillaz.Log.Info("broadcast-ports label not found", zap.Error(err), zap.Strings("otherLabels", otherLabels))
+			gorillaz.Log.Info("broadcast_ports label not found", zap.Error(err), zap.Strings("otherLabels", otherLabels))
 		}
 	}
 	return nil
