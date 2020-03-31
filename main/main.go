@@ -73,7 +73,13 @@ func getPortsToListen(project, zone string) []string {
 		if ok {
 			return strings.Split(ports, "_")
 		} else {
-			gorillaz.Log.Info("BROADCAST_PORTS label not found", zap.Error(err))
+			otherLabels := make([]string, len(vm.labels))
+			i := 0
+			for l, _ := range vm.labels {
+				otherLabels[i] = l
+				i++
+			}
+			gorillaz.Log.Info("broadcast-ports label not found", zap.Error(err), zap.Strings("otherLabels", otherLabels))
 		}
 	}
 	return nil
