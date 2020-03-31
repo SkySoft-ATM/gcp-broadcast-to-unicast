@@ -189,8 +189,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/skysoft-atm/gorillaz v0.7.5/go.mod h1:FDx6bwI5q2LdXybCTiaIzdFOh2KcrxvKJ6mwO3SN/nM=
 github.com/skysoft-atm/gorillaz v0.7.8 h1:7tNOwGRKBoJrPp4QHRekPCB0PUvLlIeUPq8wiHXyJxE=
 github.com/skysoft-atm/gorillaz v0.7.8/go.mod h1:FDx6bwI5q2LdXybCTiaIzdFOh2KcrxvKJ6mwO3SN/nM=
-github.com/skysoft-atm/supercaster v0.0.15 h1:EzIMl6YoQ2pZcVEp9PjBSBd6B3AYg60Ej9d9UJoSues=
-github.com/skysoft-atm/supercaster v0.0.15/go.mod h1:qFOqCXKyeV7azsUfJi6k3ihkEEJmsCrh9cFCnIDYyo0=
+github.com/skysoft-atm/supercaster v0.0.17 h1:U8Q6KOFSzp0oZiIeMULNIzF26iYi3GVpv2maiATnxWg=
+github.com/skysoft-atm/supercaster v0.0.17/go.mod h1:qFOqCXKyeV7azsUfJi6k3ihkEEJmsCrh9cFCnIDYyo0=
 github.com/skysoft-atm/zipkin-go-light-opentracing v0.0.1 h1:zfDhWH75TUjV6qOEBkslsS9A0JHBtu3N7mGQXZiB7WA=
 github.com/skysoft-atm/zipkin-go-light-opentracing v0.0.1/go.mod h1:VRTFlaRkZ80ISLu0RaGCEkuqCJcvPY/qDg8wH+Zi1i0=
 github.com/soheilhy/cmux v0.1.4/go.mod h1:IM3LyeVVIOuxMH7sFAkER9+bJ4dT7Ms6E4xg4kGIyLM=

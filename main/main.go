@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"github.com/lestrrat-go/backoff"
 	"github.com/skysoft-atm/gorillaz"
+	"github.com/skysoft-atm/gorillaz/mux"
+	"github.com/skysoft-atm/supercaster/broadcast"
 	"github.com/skysoft-atm/supercaster/network"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,14 +25,20 @@ var backoffPolicy = backoff.NewExponential(
 )
 
 func main() {
-
 	project, zone, err := getProjectAndZone()
 	if err != nil {
 		gorillaz.Log.Warn("Could not find project and zone", zap.Error(err))
 	}
 
-	ports := getPortsToListen(project, zone)
+	ports, maxDatagramSize := getPortsToListen(project, zone)
 	gorillaz.Sugar.Infof("Going to listen to ports %s and send them as unicast to all VMs on this project", strings.Join(ports, ","))
+
+	broadcasters := make([]udpBroadcaster, len(ports))
+	for i, port := range ports {
+		broadcasters[i] = createStreamForPort(port, maxDatagramSize)
+	}
+
+	gorillaz.Log.Info("UDP listening on ports " + strings.Join(ports, ","))
 
 	tick := time.NewTicker(2 * time.Minute)
 
@@ -42,14 +51,46 @@ func main() {
 		}
 		newInstances := getNewInstances(currentInstances, freshInstances)
 		if len(newInstances) > 0 {
-			currentInstances = startNewInstances(currentInstances, newInstances, ports)
+			addAndStartNewInstances(currentInstances, newInstances, broadcasters)
 		}
-
+		deleted := getDeletedInstances(currentInstances, freshInstances)
+		for _, d := range deleted {
+			ih, ok := currentInstances[d]
+			if ok {
+				gorillaz.Sugar.Infof("Cancelling the publication for VM instance %s", d)
+				ih.cancel()
+				delete(currentInstances, d)
+			}
+		}
 	}
 
 }
 
-func getPortsToListen(project, zone string) []string {
+type udpBroadcaster struct {
+	*mux.Broadcaster
+	port string
+}
+
+func createStreamForPort(port string, maxDatagramSize int) udpBroadcaster {
+	bo, cancel := backoffPolicy.Start(context.Background())
+	defer cancel()
+	for backoff.Continue(bo) {
+		b := mux.NewNonBlockingBroadcaster(100)
+
+		err := broadcast.UdpToBroadcaster(network.UdpSource{
+			HostPort:        ":" + port,
+			MaxDatagramSize: maxDatagramSize,
+		}, b)
+		if err == nil {
+			return udpBroadcaster{Broadcaster: b, port: port}
+		} else {
+			gorillaz.Log.Warn("Could not create stream for port "+port, zap.Error(err))
+		}
+	}
+	panic("Should not happen")
+}
+
+func getPortsToListen(project, zone string) ([]string, int) {
 	bo, cancel := backoffPolicy.Start(context.Background())
 	defer cancel()
 	for backoff.Continue(bo) {
@@ -71,7 +112,17 @@ func getPortsToListen(project, zone string) []string {
 		gorillaz.Sugar.Infof("We are running on instance %s", vm.name)
 		ports, ok := vm.labels["broadcast_ports"]
 		if ok {
-			return strings.Split(ports, "_")
+			maxSize := 8192
+			maxDatagramSize, ok := vm.labels["broadcast_max_datagram_size"]
+			if ok {
+				maxSize, err = strconv.Atoi(maxDatagramSize)
+				if err != nil {
+					maxSize = 8192
+				} else {
+					gorillaz.Sugar.Infof("Overriding max datagram size to %i", maxSize)
+				}
+			}
+			return strings.Split(ports, "_"), maxSize
 		} else {
 			otherLabels := make([]string, len(vm.labels))
 			i := 0
@@ -82,7 +133,7 @@ func getPortsToListen(project, zone string) []string {
 			gorillaz.Log.Info("broadcast_ports label not found", zap.Error(err), zap.Strings("otherLabels", otherLabels))
 		}
 	}
-	return nil
+	panic("Should never happen")
 }
 
 func getMatchingInstance(vms instances, addresses map[string][]string) (*vmInstance, error) {
@@ -100,14 +151,32 @@ func getMatchingInstance(vms instances, addresses map[string][]string) (*vmInsta
 	return nil, fmt.Errorf("instance not found")
 }
 
-func startNewInstances(currentInstances map[string]instanceHandle, newInstances instances, ports []string) map[string]instanceHandle {
-
-	//TODO
-	//for k, v := range newInstances {
-	//
-	//}
-	return nil
-
+func addAndStartNewInstances(currentInstances map[string]instanceHandle, newInstances instances, broadcasters []udpBroadcaster) {
+	for vmName, vmInstance := range newInstances {
+		ctx, cancel := context.WithCancel(context.Background())
+		gorillaz.Sugar.Infof("Adding unicast publication for VM instance %s", vmName)
+		for _, addr := range vmInstance.addresses {
+			for _, b := range broadcasters {
+				go func() {
+					bo, cancel := backoffPolicy.Start(ctx)
+					defer cancel()
+					for backoff.Continue(bo) {
+						port := b.port
+						gorillaz.Sugar.Infof("unicast to %s:%s", addr, port)
+						err := network.BroadcasterToUdp(ctx, b.Broadcaster, addr+":"+port)
+						if err != nil {
+							return
+						}
+						gorillaz.Log.Warn("Could not unicast", zap.String("address", addr), zap.String("port", port), zap.Error(err))
+					}
+				}()
+			}
+		}
+		currentInstances[vmName] = instanceHandle{
+			ips:    vmInstance.addresses,
+			cancel: cancel,
+		}
+	}
 }
 
 type instanceHandle struct {
