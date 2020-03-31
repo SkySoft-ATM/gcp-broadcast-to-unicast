@@ -30,7 +30,9 @@ func main() {
 		gorillaz.Log.Warn("Could not find project and zone", zap.Error(err))
 	}
 
-	ports, maxDatagramSize := getPortsToListen(project, zone)
+	vm := getVmInstance(project, zone)
+	gorillaz.Sugar.Infof("We are running on instance %s", vm.name)
+	ports, maxDatagramSize := getPortsToListen(vm)
 	gorillaz.Sugar.Infof("Going to listen to ports %s and send them as unicast to all VMs on this project", strings.Join(ports, ","))
 
 	broadcasters := make([]udpBroadcaster, len(ports))
@@ -46,6 +48,7 @@ func main() {
 
 	for range tick.C {
 		freshInstances, err := getInstances(project, zone)
+		delete(freshInstances, vm.name) // we exclude our own instance
 		if err != nil {
 			gorillaz.Log.Warn("Error while getting instances", zap.Error(err))
 		}
@@ -90,7 +93,7 @@ func createStreamForPort(port string, maxDatagramSize int) udpBroadcaster {
 	panic("Should not happen")
 }
 
-func getPortsToListen(project, zone string) ([]string, int) {
+func getVmInstance(project, zone string) *vmInstance {
 	bo, cancel := backoffPolicy.Start(context.Background())
 	defer cancel()
 	for backoff.Continue(bo) {
@@ -109,12 +112,21 @@ func getPortsToListen(project, zone string) ([]string, int) {
 			gorillaz.Log.Warn("Could not get matching instance", zap.Error(err))
 			continue
 		}
-		gorillaz.Sugar.Infof("We are running on instance %s", vm.name)
+		return vm
+	}
+	panic("Should never happen")
+}
+
+func getPortsToListen(vm *vmInstance) ([]string, int) {
+	bo, cancel := backoffPolicy.Start(context.Background())
+	defer cancel()
+	for backoff.Continue(bo) {
 		ports, ok := vm.labels["broadcast_ports"]
 		if ok {
 			maxSize := 8192
 			maxDatagramSize, ok := vm.labels["broadcast_max_datagram_size"]
 			if ok {
+				var err error
 				maxSize, err = strconv.Atoi(maxDatagramSize)
 				if err != nil {
 					maxSize = 8192
@@ -130,7 +142,7 @@ func getPortsToListen(project, zone string) ([]string, int) {
 				otherLabels[i] = l
 				i++
 			}
-			gorillaz.Log.Info("broadcast_ports label not found", zap.Error(err), zap.Strings("otherLabels", otherLabels))
+			gorillaz.Log.Info("broadcast_ports label not found", zap.Strings("otherLabels", otherLabels))
 		}
 	}
 	panic("Should never happen")
