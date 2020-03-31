@@ -180,6 +180,7 @@ func addAndStartNewInstances(currentInstances map[string]instanceHandle, newInst
 		gorillaz.Sugar.Infof("Adding unicast publication for VM instance %s", vmName)
 		for _, addr := range vmInstance.addresses {
 			for _, b := range broadcasters {
+				b := b
 				go func() {
 					bo, cancel := backoffPolicy.Start(ctx)
 					defer cancel()
