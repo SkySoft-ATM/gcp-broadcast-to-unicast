@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func main() {
 	gorillaz.Log.Info("UDP listening on ports " + strings.Join(ports, ","))
 
 	//tick := time.NewTicker(2 * time.Minute)
-	tick := time.NewTicker(20 * time.Second)
+	tick := time.NewTicker(30 * time.Second)
 
 	currentInstances := make(map[string]instanceHandle)
 
@@ -129,34 +130,31 @@ func getVmInstance(project, zone string) *vmInstance {
 }
 
 func getPortsToListen(vm *vmInstance) ([]string, int) {
-	bo, cancel := backoffPolicy.Start(context.Background())
-	defer cancel()
-	for backoff.Continue(bo) {
-		ports, ok := vm.labels["broadcast_ports"]
+	ports, ok := vm.labels["broadcast_ports"]
+	if ok {
+		maxSize := 8192
+		maxDatagramSize, ok := vm.labels["broadcast_max_datagram_size"]
 		if ok {
-			maxSize := 8192
-			maxDatagramSize, ok := vm.labels["broadcast_max_datagram_size"]
-			if ok {
-				var err error
-				maxSize, err = strconv.Atoi(maxDatagramSize)
-				if err != nil {
-					maxSize = 8192
-				} else {
-					gorillaz.Sugar.Infof("Overriding max datagram size to %i", maxSize)
-				}
+			var err error
+			maxSize, err = strconv.Atoi(maxDatagramSize)
+			if err != nil {
+				maxSize = 8192
+			} else {
+				gorillaz.Sugar.Infof("Overriding max datagram size to %i", maxSize)
 			}
-			return strings.Split(ports, "_"), maxSize
-		} else {
-			otherLabels := make([]string, len(vm.labels))
-			i := 0
-			for l := range vm.labels {
-				otherLabels[i] = l
-				i++
-			}
-			gorillaz.Log.Info("broadcast_ports label not found", zap.Strings("otherLabels", otherLabels))
 		}
+		return strings.Split(ports, "_"), maxSize
+	} else {
+		otherLabels := make([]string, len(vm.labels))
+		i := 0
+		for l := range vm.labels {
+			otherLabels[i] = l
+			i++
+		}
+		gorillaz.Log.Info("broadcast_ports label not found", zap.Strings("otherLabels", otherLabels))
+		os.Exit(0)
+		return nil, 0
 	}
-	panic("Should never happen")
 }
 
 func getMatchingInstance(vms instances, addresses map[string][]string) (*vmInstance, error) {
