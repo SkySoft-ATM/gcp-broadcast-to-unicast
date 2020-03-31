@@ -81,12 +81,13 @@ func createStreamForPort(port string, maxDatagramSize int) udpBroadcaster {
 		bo, cancel := backoffPolicy.Start(context.Background())
 		defer cancel()
 		for backoff.Continue(bo) {
+			gorillaz.Log.Info("Listening to port " + port)
 			err := broadcast.UdpToBroadcaster(network.UdpSource{
 				HostPort:        ":" + port,
 				MaxDatagramSize: maxDatagramSize,
 			}, b)
 			if err == nil {
-
+				return
 			} else {
 				gorillaz.Log.Warn("Could not broadcast for port "+port, zap.Error(err))
 			}
