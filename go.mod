@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.55.0
 	github.com/lestrrat-go/backoff v1.0.0
 	github.com/skysoft-atm/gorillaz v0.7.8
-	github.com/skysoft-atm/supercaster v0.0.17
+	github.com/skysoft-atm/supercaster v0.0.18
 	go.uber.org/zap v1.10.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/api v0.20.0
