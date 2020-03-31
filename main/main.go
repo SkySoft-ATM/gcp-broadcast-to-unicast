@@ -29,6 +29,7 @@ func main() {
 	}
 
 	ports := getPortsToListen(project, zone)
+	gorillaz.Sugar.Infof("Going to listen to ports %s and send them as unicast to all VMs on this project", strings.Join(ports, ","))
 
 	tick := time.NewTicker(2 * time.Minute)
 
@@ -68,9 +69,9 @@ func getPortsToListen(project, zone string) []string {
 			continue
 		}
 		gorillaz.Sugar.Infof("We are running on instance %s", vm.name)
-		ports, ok := vm.labels["BROADCAST_PORTS"]
+		ports, ok := vm.labels["broadcast-ports"]
 		if ok {
-			return strings.Split(ports, ",")
+			return strings.Split(ports, "_")
 		} else {
 			gorillaz.Log.Info("BROADCAST_PORTS label not found", zap.Error(err))
 		}
