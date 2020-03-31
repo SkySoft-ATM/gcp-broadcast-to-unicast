@@ -42,31 +42,38 @@ func main() {
 
 	gorillaz.Log.Info("UDP listening on ports " + strings.Join(ports, ","))
 
-	tick := time.NewTicker(2 * time.Minute)
+	//tick := time.NewTicker(2 * time.Minute)
+	tick := time.NewTicker(20 * time.Second)
 
 	currentInstances := make(map[string]instanceHandle)
 
+	refreshInstances(project, zone, vm.name, currentInstances, broadcasters)
+
 	for range tick.C {
-		freshInstances, err := getInstances(project, zone)
-		delete(freshInstances, vm.name) // we exclude our own instance
-		if err != nil {
-			gorillaz.Log.Warn("Error while getting instances", zap.Error(err))
-		}
-		newInstances := getNewInstances(currentInstances, freshInstances)
-		if len(newInstances) > 0 {
-			addAndStartNewInstances(currentInstances, newInstances, broadcasters)
-		}
-		deleted := getDeletedInstances(currentInstances, freshInstances)
-		for _, d := range deleted {
-			ih, ok := currentInstances[d]
-			if ok {
-				gorillaz.Sugar.Infof("Cancelling the publication for VM instance %s", d)
-				ih.cancel()
-				delete(currentInstances, d)
-			}
-		}
+		refreshInstances(project, zone, vm.name, currentInstances, broadcasters)
 	}
 
+}
+
+func refreshInstances(project string, zone string, instanceName string, currentInstances map[string]instanceHandle, broadcasters []udpBroadcaster) {
+	freshInstances, err := getInstances(project, zone)
+	delete(freshInstances, instanceName) // we exclude our own instance
+	if err != nil {
+		gorillaz.Log.Warn("Error while getting instances", zap.Error(err))
+	}
+	newInstances := getNewInstances(currentInstances, freshInstances)
+	if len(newInstances) > 0 {
+		addAndStartNewInstances(currentInstances, newInstances, broadcasters)
+	}
+	deleted := getDeletedInstances(currentInstances, freshInstances)
+	for _, d := range deleted {
+		ih, ok := currentInstances[d]
+		if ok {
+			gorillaz.Sugar.Infof("Cancelling the publication for VM instance %s", d)
+			ih.cancel()
+			delete(currentInstances, d)
+		}
+	}
 }
 
 type udpBroadcaster struct {
