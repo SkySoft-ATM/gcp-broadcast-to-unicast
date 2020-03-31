@@ -75,22 +75,25 @@ type udpBroadcaster struct {
 }
 
 func createStreamForPort(port string, maxDatagramSize int) udpBroadcaster {
-	bo, cancel := backoffPolicy.Start(context.Background())
-	defer cancel()
-	for backoff.Continue(bo) {
-		b := mux.NewNonBlockingBroadcaster(100)
+	b := mux.NewNonBlockingBroadcaster(100)
 
-		err := broadcast.UdpToBroadcaster(network.UdpSource{
-			HostPort:        ":" + port,
-			MaxDatagramSize: maxDatagramSize,
-		}, b)
-		if err == nil {
-			return udpBroadcaster{Broadcaster: b, port: port}
-		} else {
-			gorillaz.Log.Warn("Could not create stream for port "+port, zap.Error(err))
+	go func() {
+		bo, cancel := backoffPolicy.Start(context.Background())
+		defer cancel()
+		for backoff.Continue(bo) {
+			err := broadcast.UdpToBroadcaster(network.UdpSource{
+				HostPort:        ":" + port,
+				MaxDatagramSize: maxDatagramSize,
+			}, b)
+			if err == nil {
+
+			} else {
+				gorillaz.Log.Warn("Could not broadcast for port "+port, zap.Error(err))
+			}
 		}
-	}
-	panic("Should not happen")
+	}()
+
+	return udpBroadcaster{Broadcaster: b, port: port}
 }
 
 func getVmInstance(project, zone string) *vmInstance {
